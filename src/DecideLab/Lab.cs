@@ -61,7 +61,7 @@ public static class ApplicationService
         this IEventStore store,
         string streamName,
         Command command,
-        Decider decider, 
+        Decider decider,
         Func<Event, Task> pub)
     {
         var (history, version) = store.LoadStream(streamName);
@@ -71,7 +71,23 @@ public static class ApplicationService
         foreach (var e in events)
             await pub(e);
     }
+
+    public static async Task<(State, Event[])> DecideAsync(this Decider decider, Command cmd, IAsyncEnumerable<Event> history)
+    {
+        State state = await history.AggregateAsync(decider.InitialState, decider.Evolve);
+        var s = state;
+        var events = decider.Decide(cmd, s);
+        return (s, events);
+    }
+
+    public static (State, Event[]) Decide(this Decider decider, Command cmd, params Event[] history)
+    {
+        var s = history.Aggregate(decider.InitialState, decider.Evolve);
+        var events = decider.Decide(cmd, s);
+        return (s, events);
+    }
 }
+
 
 public static class Lab
 {
